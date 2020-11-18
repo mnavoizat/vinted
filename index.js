@@ -6,9 +6,9 @@ const cors = require("cors");
 
 // initialisation du serveur
 const app = express();
-app.use(formidable());
+app.use(formidable({ multiples: true }));
 app.use(cors());
-
+//{ multiples: true }
 // initialisation de la BDD
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -29,6 +29,8 @@ const userRoutes = require("./routes/user");
 app.use(userRoutes);
 const offerRoutes = require("./routes/offer");
 app.use(offerRoutes);
+const payRoutes = require("./routes/pay");
+app.use(payRoutes);
 
 // all routes
 app.all("*", (req, res) => {

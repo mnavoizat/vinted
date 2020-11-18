@@ -38,14 +38,57 @@ router.post("/offer/publish", isAuthenticated, async (req, res) => {
       owner: req.user,
     });
 
+    // if (req.files.picture) {
+    //   const picture = req.files.picture.path;
+    //   const resPicture = await cloudinary.uploader.upload(picture, {
+    //     folder: `/vinted/offers/${newOffer._id}`,
+    //     public_id: title,
+    //   });
+    //   newOffer.product_image = resPicture;
+    // }
+    console.log(req.files.picture);
+
     if (req.files.picture) {
-      const picture = req.files.picture.path;
-      const resPicture = await cloudinary.uploader.upload(picture, {
-        folder: `/vinted/offers/${newOffer._id}`,
-        public_id: title,
-      });
-      newOffer.product_image = resPicture;
+      const picture = req.files.picture;
+      console.log(picture);
+
+      if (Array.isArray(picture)) {
+        listPicture = [];
+        for (let i = 0; i < picture.length; i++) {
+          const resPicture = await cloudinary.uploader.upload(picture[i].path, {
+            folder: `/vinted/offers/${newOffer._id}`,
+            public_id: `${title}_${i}`,
+          });
+          listPicture.push(resPicture);
+        }
+        newOffer.product_image = listPicture[0];
+        newOffer.product_pictures = listPicture;
+      } else {
+        const resPicture = await cloudinary.uploader.upload(picture.path, {
+          folder: `/vinted/offers/${newOffer._id}`,
+          public_id: title,
+        });
+        newOffer.product_image = resPicture;
+      }
     }
+
+    // const fileKeys = Object.keys(req.files);
+    // let results = {};
+    // if (fileKeys.length === 0) {
+    //   res.send("No file uploaded!");
+    // } else {
+    //   fileKeys.forEach(async (fileKey) => {
+    //     const file = req.files[fileKey];
+    //     const result = await cloudinary.uploader.upload(file.path);
+    //     results[fileKey] = {
+    //       success: true,
+    //       result: result,
+    //     };
+    //   });
+    // }
+    // if (Object.keys(results).length === fileKeys.length) {
+    //   // tous les uploads sont terminés, on peut donc envoyer la réponse au client
+    // }
 
     await newOffer.save();
 
@@ -56,6 +99,7 @@ router.post("/offer/publish", isAuthenticated, async (req, res) => {
       product_price: newOffer.product_price,
       product_details: newOffer.product_details,
       product_image: newOffer.product_image,
+      product_pictures: newOffer.product_pictures,
       owner: { account: newOffer.owner.account, _id: newOffer.owner._id },
     });
   } catch (error) {
@@ -145,7 +189,7 @@ router.delete("/offer/delete", isAuthenticated, async (req, res) => {
 
 router.get("/offers", async (req, res) => {
   try {
-    let { title, priceMin, priceMax, sort, page } = req.query;
+    let { title, priceMin, priceMax, sort, page, limit } = req.query;
     let filters = {};
     if (title) {
       filters.product_name = new RegExp(title, "i");
@@ -172,10 +216,12 @@ router.get("/offers", async (req, res) => {
       page = 1;
     }
 
-    const limit = 3;
+    if (!limit) {
+      limit = 10;
+    }
     const offers = await Offer.find(filters)
       .sort(sorting)
-      .limit(limit)
+      .limit(Number(limit))
       .skip((page - 1) * limit)
       .populate({ path: "owner", select: "account" });
     //.select("_id product_price");
@@ -187,7 +233,7 @@ router.get("/offers", async (req, res) => {
       offers,
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: error.response });
   }
 });
 
